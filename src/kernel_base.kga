@@ -65,6 +65,9 @@ cpu_exec
     var catStr
     write "cat" to var:catStr
 
+    var modifyStr
+    write "modify" to var:modifyStr
+
 label kernel_start
     // Display prompt to enter the value:
     copy var:sys_work_dir to DISPLAY_BUFFER
@@ -121,6 +124,12 @@ label kernel_start
     write OP_CMP_EQ to REG_OP
     cpu_exec
     jump_if label:cat_command
+
+    copy var:parsedStr to REG_A
+    copy var:modifyStr to REG_B
+    write OP_CMP_EQ to REG_OP
+    cpu_exec
+    jump_if label:file_modification_command
 
     jump label:kernel_start
 
@@ -179,6 +188,103 @@ label cat_command
         jump label:sys_fs_close
         jump label:kernel_start
 
+label file_modification_command
+    copy var:parsedArg1 to REG_A
+    write "" to REG_B
+    write OP_CMP_EQ to REG_OP
+    cpu_exec
+    jump_if label:kernel_start
+
+    var file_modification_descriptor
+    copy var:parsedArg1 to REG_A
+    copy PROGRAM_COUNTER to var:sys_return
+    jump label:sys_fs_open
+    jump_err label:kernel_start
+    copy REG_RES to var:file_modification_descriptor
+
+    copy var:file_modification_descriptor to REG_A
+    copy PROGRAM_COUNTER to var:sys_return
+    jump label:sys_fs_descriptor_info
+    write "File descriptor info(name disk fileHeaderBlock fileSize): " to DISPLAY_BUFFER
+    write COLOR_CYAN to DISPLAY_COLOR
+    write OP_DISPLAY to REG_OP
+    cpu_exec
+    copy REG_RES to DISPLAY_BUFFER
+    write OP_DISPLAY_LN to REG_OP
+    cpu_exec
+
+    var file_modification_line_counter
+    write 1 to var:file_modification_line_counter
+    
+    label file_modification_loop
+        var current_line
+        copy var:file_modification_descriptor to REG_A
+        copy var:file_modification_line_counter to REG_B
+        copy PROGRAM_COUNTER to var:sys_return
+        jump label:sys_fs_read
+        jump_err label:file_modification_close
+
+        copy REG_RES to var:current_line
+
+        var first_character
+        copy var:current_line to REG_A
+        write 1 to REG_B
+        write "" to REG_C
+        write OP_GET_COLUMN to REG_OP
+        cpu_exec
+        copy REG_RES to var:first_character
+
+        copy var:first_character to REG_A
+        write OP_IS_NUM to REG_OP
+        cpu_exec
+        
+        jump_if label:modify_first_character
+        
+        copy var:file_modification_line_counter to REG_A
+        write OP_INCR to REG_OP
+        cpu_exec
+        copy REG_RES to var:file_modification_line_counter
+        jump label:file_modification_loop
+
+    label modify_first_character
+        copy var:first_character to REG_A
+        write OP_INCR to REG_OP
+        cpu_exec
+        copy REG_RES to var:first_character
+
+        var modified_line
+        copy var:current_line to REG_A
+        write 1 to REG_B
+        write "" to REG_C
+        copy var:first_character to REG_D
+        write OP_REPLACE_COLUMN to REG_OP
+        cpu_exec
+        copy REG_RES to var:modified_line
+
+        copy var:file_modification_descriptor to REG_A
+        copy var:file_modification_line_counter to REG_B
+        copy var:modified_line to REG_C
+        copy PROGRAM_COUNTER to var:sys_return
+        jump label:sys_fs_write
+        jump_err label:file_modification_close
+
+        copy var:file_modification_line_counter to REG_A
+        write OP_INCR to REG_OP
+        cpu_exec
+        copy REG_RES to var:file_modification_line_counter
+        jump label:file_modification_loop
+
+    label file_modification_close
+        copy var:file_modification_descriptor to REG_A
+        copy PROGRAM_COUNTER to var:sys_return
+        jump label:sys_fs_close
+        
+        write "File modified successfully" to DISPLAY_BUFFER
+        write COLOR_GREEN to DISPLAY_COLOR
+        write OP_DISPLAY_LN to REG_OP
+        cpu_exec
+        
+        jump label:kernel_start
 
 label kernel_end
     copy REG_ERROR to DISPLAY_BUFFER
