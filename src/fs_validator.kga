@@ -1,0 +1,351 @@
+var currentPosition
+var iterationIndex
+var totalPartitions
+var storageDevice
+var fileSystemHeader
+var lastUsableBlock
+var partitionEntry
+var targetPartition
+var partitionBegin
+var partitionEnd
+
+label initialize
+    write "Enter the disk name: " to DISPLAY_BUFFER
+    write COLOR_CYAN to DISPLAY_COLOR
+    write OP_DISPLAY_LN to REG_OP
+    cpu_exec
+
+    write OP_READ_INPUT to REG_OP
+    cpu_exec
+
+    copy KEYBOARD_BUFFER to var:storageDevice
+
+    write "Enter the partition name: " to DISPLAY_BUFFER
+    write COLOR_CYAN to DISPLAY_COLOR
+    write OP_DISPLAY_LN to REG_OP
+    cpu_exec
+
+    write OP_READ_INPUT to REG_OP
+    cpu_exec
+
+    copy KEYBOARD_BUFFER to var:targetPartition
+
+    copy var:storageDevice to REG_A
+    write "1" to REG_B
+    write OP_READ_BLOCK to REG_OP
+    cpu_exec
+    jump_err label:handleError
+
+    copy var:storageDevice to REG_A
+    write "3" to REG_B
+    write OP_READ_BLOCK to REG_OP
+    cpu_exec
+    jump_err label:handleError
+
+    copy REG_RES to REG_A
+    write "2" to REG_B
+    write " " to REG_C
+    write OP_GET_COLUMN to REG_OP
+    cpu_exec
+
+    copy REG_RES to var:totalPartitions
+    write "1" to var:iterationIndex
+    write "4" to var:currentPosition
+    
+label scanPartitionTable
+    copy var:storageDevice to REG_A
+    copy var:currentPosition to REG_B
+    write OP_READ_BLOCK to REG_OP
+    cpu_exec
+    jump_err label:handleError
+
+    copy REG_RES to var:partitionEntry
+
+    copy REG_RES to REG_A
+    write "2" to REG_B
+    write " " to REG_C
+    write OP_GET_COLUMN to REG_OP
+    cpu_exec
+
+    copy REG_RES to REG_A
+    copy var:targetPartition to REG_B
+    write OP_CMP_EQ to REG_OP
+    cpu_exec
+    jump_if label:partitionFound
+
+    copy var:iterationIndex to REG_A
+    write OP_INCR to REG_OP
+    cpu_exec
+
+    copy REG_RES to var:iterationIndex
+    copy var:iterationIndex to REG_A
+    copy var:totalPartitions to REG_B
+    write OP_CMP_LE to REG_OP
+    cpu_exec
+    jump_if_not label:partitionNotFound
+
+    copy var:currentPosition to REG_A
+    write OP_INCR to REG_OP
+    cpu_exec
+    jump label:scanPartitionTable
+
+label partitionFound
+    write "Partition exists!" to DISPLAY_BUFFER
+    write COLOR_GREEN to DISPLAY_COLOR
+    write OP_DISPLAY_LN to REG_OP
+    cpu_exec
+
+    copy var:partitionEntry to REG_A
+    write "4" to REG_B
+    write " " to REG_C
+    write OP_GET_COLUMN to REG_OP
+    cpu_exec
+
+    copy REG_RES to var:partitionBegin
+
+    copy var:partitionEntry to REG_A
+    write "6" to REG_B
+    write " " to REG_C
+    write OP_GET_COLUMN to REG_OP
+    cpu_exec
+
+    copy REG_RES to var:partitionEnd
+
+    copy var:storageDevice to REG_A
+    copy var:partitionBegin to REG_B
+    write OP_READ_BLOCK to REG_OP
+    cpu_exec
+    jump_err label:handleError
+
+label checkHeaderFormat
+    copy REG_RES to var:fileSystemHeader
+
+    copy var:fileSystemHeader to REG_A
+    write "1" to REG_B
+    write " " to REG_C
+    write OP_GET_COLUMN to REG_OP
+    cpu_exec
+
+    copy REG_RES to REG_A
+    write "FS_HEADER" to REG_B
+    write OP_CMP_EQ to REG_OP
+    cpu_exec
+    jump_if_not label:handleError
+
+    copy var:fileSystemHeader to REG_A
+    write "2" to REG_B
+    write " " to REG_C
+    write OP_GET_COLUMN to REG_OP
+    cpu_exec
+
+    copy REG_RES to REG_A
+    write "kagu_fs" to REG_B
+    write OP_CMP_EQ to REG_OP
+    cpu_exec
+    jump_if_not label:handleError
+
+    copy var:fileSystemHeader to REG_A
+    write "3" to REG_B
+    write " " to REG_C
+    write OP_GET_COLUMN to REG_OP
+    cpu_exec
+
+    copy REG_RES to REG_A
+    write "FIRST_USABLE_BLOCK" to REG_B
+    write OP_CMP_EQ to REG_OP
+    cpu_exec
+    jump_if_not label:handleError
+
+    copy var:fileSystemHeader to REG_A
+    write "5" to REG_B
+    write " " to REG_C
+    write OP_GET_COLUMN to REG_OP
+    cpu_exec
+
+    copy REG_RES to REG_A
+    write "LAST_USABLE_BLOCK" to REG_B
+    write OP_CMP_EQ to REG_OP
+    cpu_exec
+    jump_if_not label:handleError
+
+    copy var:fileSystemHeader to REG_A
+    write "4" to REG_B
+    write " " to REG_C
+    write OP_GET_COLUMN to REG_OP
+    cpu_exec
+
+    copy var:partitionBegin to REG_A
+    copy REG_RES to REG_B
+    write OP_CMP_LT to REG_OP
+    cpu_exec
+    jump_if_not label:handleError
+
+    copy var:fileSystemHeader to REG_A
+    write "6" to REG_B
+    write " " to REG_C
+    write OP_GET_COLUMN to REG_OP
+    cpu_exec
+
+    copy REG_RES to var:lastUsableBlock
+
+    copy REG_RES to REG_A
+    copy var:partitionEnd to REG_B
+    write OP_CMP_LE to REG_OP
+    cpu_exec
+    jump_if_not label:handleError
+
+    copy var:partitionBegin to REG_A
+    write OP_INCR to REG_OP
+    cpu_exec
+
+    copy REG_RES to var:currentPosition
+
+label examineFileEntries
+    copy var:storageDevice to REG_A
+    copy var:currentPosition to REG_B
+    write OP_READ_BLOCK to REG_OP
+    cpu_exec
+    jump_err label:handleError
+
+    copy REG_RES to var:partitionEntry
+
+    copy REG_RES to REG_A
+    write "" to REG_B
+    write OP_CMP_EQ to REG_OP
+    cpu_exec
+    jump_if label:moveToNextBlock
+
+    copy var:partitionEntry to REG_A
+    write "FS_HEADER_END" to REG_B
+    write OP_CMP_EQ to REG_OP
+    cpu_exec
+    jump_if_not label:checkFileFormat
+    
+    write "Filesystem is valid!" to DISPLAY_BUFFER
+    write COLOR_GREEN to DISPLAY_COLOR
+    write OP_DISPLAY_LN to REG_OP
+    cpu_exec
+    jump label:terminate
+    
+label checkFileFormat
+    write "2" to var:iterationIndex
+
+label verifyAccessRights
+    var accessLevel
+    copy var:partitionEntry to REG_A
+    copy var:iterationIndex to REG_B
+    write " " to REG_C
+    write OP_GET_COLUMN to REG_OP
+    cpu_exec
+
+    copy REG_RES to var:accessLevel
+
+    copy REG_RES to REG_A
+    write "7" to REG_B
+    write OP_CMP_LE to REG_OP
+    cpu_exec
+    jump_if_not label:handleError
+
+    write "0" to REG_A
+    copy var:accessLevel to REG_B
+    write OP_CMP_LE to REG_OP
+    cpu_exec
+    jump_if_not label:handleError
+
+    copy var:iterationIndex to REG_A
+    write OP_INCR to REG_OP
+    cpu_exec
+
+    copy REG_RES to var:iterationIndex
+
+    copy var:iterationIndex to REG_A
+    write "5" to REG_B
+    write OP_CMP_LT to REG_OP
+    cpu_exec
+
+    jump_if label:startBlockValidation
+    jump label:verifyAccessRights
+
+label startBlockValidation
+    write "8" to var:iterationIndex
+
+label checkBlockPairs
+    var startBlock
+    var endBlock
+
+    copy var:partitionEntry to REG_A
+    copy var:iterationIndex to REG_B
+    write " " to REG_C
+    write OP_GET_COLUMN to REG_OP
+    cpu_exec
+
+    copy REG_RES to var:startBlock
+
+    copy REG_RES to REG_A
+    write "" to REG_B
+    write OP_CMP_EQ to REG_OP
+    cpu_exec
+    jump_if label:moveToNextBlock
+
+    copy var:iterationIndex to REG_A
+    write OP_INCR to REG_OP
+    cpu_exec
+
+    copy REG_RES to var:iterationIndex
+
+    copy var:partitionEntry to REG_A
+    copy var:iterationIndex to REG_B
+    write " " to REG_C
+    write OP_GET_COLUMN to REG_OP
+    cpu_exec
+
+    copy REG_RES to var:endBlock
+
+    copy REG_RES to REG_A
+    write "" to REG_B
+    write OP_CMP_EQ to REG_OP
+    cpu_exec
+    jump_if label:handleError
+
+    copy var:startBlock to REG_A
+    copy var:endBlock to REG_B
+    write OP_CMP_LE to REG_OP
+    cpu_exec
+    jump_if_not label:handleError
+
+    copy var:iterationIndex to REG_A
+    write OP_INCR to REG_OP
+    cpu_exec
+    copy REG_RES to var:iterationIndex
+
+    jump label:checkBlockPairs
+
+label moveToNextBlock
+    copy var:currentPosition to REG_A
+    write OP_INCR to REG_OP
+    cpu_exec
+
+    copy REG_RES to var:currentPosition
+
+    copy var:currentPosition to REG_A
+    copy var:partitionEnd to REG_B
+    write OP_CMP_LE to REG_OP
+    jump_if_not label:handleError
+    jump label:examineFileEntries
+
+label partitionNotFound
+    write "Partition doesn't exist!" to DISPLAY_BUFFER
+    write COLOR_RED to DISPLAY_COLOR
+    write OP_DISPLAY_LN to REG_OP
+    cpu_exec
+    jump label:terminate
+
+label handleError
+    write "Error occurred" to DISPLAY_BUFFER
+    write COLOR_RED to DISPLAY_COLOR
+    write OP_DISPLAY_LN to REG_OP
+    cpu_exec
+
+label terminate
+    write OP_HALT to REG_OP
+    cpu_exec

@@ -1,0 +1,127 @@
+write COLOR_CYAN to DISPLAY_BACKGROUND
+write OP_SET_BACKGROUND_COLOR to REG_OP
+cpu_exec
+
+write "cccccccccccccccccccccccccccc" to 198
+write "cccccccccccccccccccccccccccc" to 199
+write "ccccccccccccBBBBcccccccccccc" to 200
+write "cccccccccccByyyyBccccccccccc" to 201
+write "cccccccccBByyyyyyBBccccccccc" to 202
+write "ccccccccByyyyyyyyyyBcccccccc" to 203
+write "ccccccccByyyyyyyyyyBcccccccc" to 204
+write "cccccccByyyBBBBBByyyBccccccc" to 205
+write "cccccccBBBBwwwwwwBBBBccccccc" to 206
+write "cccccccBBBBwwBBwwBBBBccccccc" to 207
+write "cccccccBBBBwwwwwwBBBBccccccc" to 208
+write "ccccccccByyBBBBBByyBcccccccc" to 209
+write "ccccccccByyyyyyyyyyBcccccccc" to 210
+write "ccccccccByyyyyyyyyyBcccccccc" to 211
+write "ccccccccByyyyyyyyyyBcccccccc" to 212
+write "ccccccccByyyBBBByyyBcccccccc" to 213
+write "ccccccccBbyBccccBybBcccccccc" to 214
+write "cccccccBybyBccccBybyBccccccc" to 215
+write "cccccccBybyBBBBBBybyBccccccc" to 216
+write "cccccccBybyyyyyyyybyBccccccc" to 217
+write "cccccccBbbbbbbbbbbbbBccccccc" to 218
+write "cccccccBbbbbbbbbbbbbBccccccc" to 219
+write "cccccccBbbbBccccBbbbBccccccc" to 220
+write "cccccccBbbbBccccBbbbBccccccc" to 221
+write "ccccccccBBbBccccBbBBcccccccc" to 222
+write "ccccccccccBccccccBcccccccccc" to 223
+write "cccccccccccccccccccccccccccc" to 224
+write "cccccccccccccccccccccccccccc" to 225
+write "cccccccccccccccccccccccccccc" to 226
+
+var key_input
+var curr_row
+var start_row
+var end_row
+
+label start
+    write 198 to var:start_row
+    write 226 to var:end_row
+    
+    copy var:start_row to REG_A
+    copy var:end_row to REG_B
+    write OP_RENDER_BITMAP to REG_OP
+    cpu_exec
+    
+    write OP_READ_INPUT to REG_OP
+    write KEYBOARD_READ_CHAR_SILENTLY to REG_A
+    cpu_exec
+    copy KEYBOARD_BUFFER to var:key_input
+    
+    copy var:key_input to REG_A
+    write "a" to REG_B
+    write OP_CMP_EQ to REG_OP
+    cpu_exec
+    jump_if label:shift_left
+    
+    copy var:key_input to REG_A
+    write "d" to REG_B
+    write OP_CMP_EQ to REG_OP
+    cpu_exec
+    jump_if label:shift_right
+    
+    copy var:key_input to REG_A
+    write "q" to REG_B
+    write OP_CMP_EQ to REG_OP
+    cpu_exec
+    jump_if label:exit
+    
+    jump label:start
+
+label shift_right
+    copy var:start_row to var:curr_row
+    
+    label shift_right_loop
+        write "c" to REG_A
+        copy *var:curr_row to REG_B
+        write "" to REG_C
+        write OP_CONCAT_WITH to REG_OP
+        cpu_exec
+        
+        copy REG_RES to *var:curr_row
+        
+        copy var:curr_row to REG_A
+        write OP_INCR to REG_OP
+        cpu_exec
+        copy REG_RES to var:curr_row
+        
+        copy var:curr_row to REG_A
+        copy var:end_row to REG_B
+        write OP_CMP_LT to REG_OP
+        cpu_exec
+        jump_if label:shift_right_loop
+    
+    jump label:start
+
+label shift_left
+    copy var:start_row to var:curr_row
+    
+    label shift_left_loop
+        copy *var:curr_row to REG_A
+        write 1 to REG_B
+        write "" to REG_C
+        write "" to REG_D
+        write OP_REPLACE_COLUMN to REG_OP
+        cpu_exec
+        
+        copy REG_RES to *var:curr_row
+        
+        copy var:curr_row to REG_A
+        write OP_INCR to REG_OP
+        cpu_exec
+        copy REG_RES to var:curr_row
+        
+        copy var:curr_row to REG_A
+        copy var:end_row to REG_B
+        write OP_CMP_LT to REG_OP
+        cpu_exec
+        jump_if label:shift_left_loop
+    
+    jump label:start
+
+label exit
+    write OP_HALT to REG_OP
+    cpu_exec
